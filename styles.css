@@ -995,3 +995,59 @@ th.gridjs-th:last-child {
     background-color: #9bc2f7;
     cursor: ew-resize;
 }
+
+.sr-cram-bar {
+    display: flex;
+    margin-bottom: 0.75rem;
+    border-radius: 6px;
+    overflow: hidden;
+    font-size: 0.85rem;
+}
+
+.sr-cram-bar.sr-is-hidden {
+    display: none;
+}
+
+.sr-cram-bar__segment {
+    flex: 1 1 0;
+    padding: 0.35rem 0.5rem;
+    text-align: center;
+    background: var(--background-secondary);
+    color: var(--text-muted);
+    position: relative;
+}
+
+.sr-cram-bar__segment::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: -12px;
+    width: 24px;
+    height: 100%;
+    transform: skewX(-25deg);
+    background: inherit;
+    z-index: 1;
+}
+
+.sr-cram-bar__segment:last-child::after {
+    display: none;
+}
+
+.sr-cram-bar__label {
+    font-weight: 500;
+}
+
+.sr-cram-bar__count {
+    margin-top: 0.15rem;
+    font-size: 0.95em;
+}
+
+.sr-cram-bar__segment.is-current {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent, #fff);
+    font-weight: 600;
+}
+
+.sr-cram-bar__segment:not(.is-current):hover {
+    background: rgba(255, 255, 255, 0.06);
+}

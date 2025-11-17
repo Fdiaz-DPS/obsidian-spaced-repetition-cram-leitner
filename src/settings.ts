@@ -63,6 +63,13 @@ export interface SRSettings {
     // logging
     showSchedulingDebugMessages: boolean;
     showParserDebugMessages: boolean;
+
+    // cram / Leitner settings
+    cramStages: number;
+    cramMemorizedStageIndex: number;
+    cramDemotionThreshold: number;
+    cramSyntheticDefaultResponse: "easy" | "good" | "hard";
+    cramSyntheticTroublesomeResponse: "easy" | "good" | "hard";
 }
 
 export const DEFAULT_SETTINGS: SRSettings = {
@@ -123,6 +130,13 @@ export const DEFAULT_SETTINGS: SRSettings = {
     // logging
     showSchedulingDebugMessages: false,
     showParserDebugMessages: false,
+
+    // cram / Leitner
+    cramStages: 5,
+    cramMemorizedStageIndex: 4,
+    cramDemotionThreshold: 2,
+    cramSyntheticDefaultResponse: "easy",
+    cramSyntheticTroublesomeResponse: "hard",
 };
 
 export function upgradeSettings(settings: SRSettings) {

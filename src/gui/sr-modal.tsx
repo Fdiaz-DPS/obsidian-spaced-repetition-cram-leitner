@@ -92,6 +92,7 @@ export class FlashcardModal extends Modal {
         this.mode = FlashcardMode.Closed;
         this.deckView.close();
         this.flashcardView.close();
+        void this.reviewSequencer.finaliseCramSession();
     }
 
     private _showDecksList(): void {

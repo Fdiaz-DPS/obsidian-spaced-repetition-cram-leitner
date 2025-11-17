@@ -56,6 +56,7 @@ export class CardUI {
     public cardContext: HTMLElement;
 
     public content: HTMLDivElement;
+    private cramStageBarContainer: HTMLDivElement;
 
     public controls: HTMLDivElement;
     public editButton: HTMLButtonElement;
@@ -123,6 +124,9 @@ export class CardUI {
         this._createCardControls();
 
         this._createInfoSection();
+
+        this.cramStageBarContainer = this.view.createDiv();
+        this.cramStageBarContainer.addClasses(["sr-cram-bar", "sr-is-hidden"]);
 
         this.content = this.view.createDiv();
         this.content.addClass("sr-content");
@@ -198,6 +202,7 @@ export class CardUI {
         }
 
         this._updateInfoBar(this.chosenDeck, this.currentDeck);
+        this._renderCramStageBar();
 
         // Update card content
         this.content.empty();
@@ -384,6 +389,44 @@ export class CardUI {
             this.cardContext = this.infoSection.createDiv();
             this.cardContext.addClass("sr-context");
         }
+    }
+
+    private _renderCramStageBar() {
+        if (this.reviewMode !== FlashcardReviewMode.Cram) {
+            this.cramStageBarContainer.addClass("sr-is-hidden");
+            this.cramStageBarContainer.empty();
+            return;
+        }
+
+        const stats = this.reviewSequencer.getCramStageStats();
+        if (!stats) {
+            this.cramStageBarContainer.addClass("sr-is-hidden");
+            this.cramStageBarContainer.empty();
+            return;
+        }
+
+        this.cramStageBarContainer.removeClass("sr-is-hidden");
+        this.cramStageBarContainer.empty();
+
+        const memorizedLabelIndex = Math.min(
+            this.settings.cramStages - 1,
+            this.settings.cramMemorizedStageIndex,
+        );
+
+        stats.counts.forEach((count, idx) => {
+            const segment = this.cramStageBarContainer.createDiv();
+            segment.addClasses(["sr-cram-bar__segment"]);
+            if (idx === stats.currentStage) {
+                segment.addClass("is-current");
+            }
+
+            const labelEl = segment.createDiv("sr-cram-bar__label");
+            const label = idx === memorizedLabelIndex ? "Memorized" : `Level ${idx + 1}`;
+            labelEl.setText(label);
+
+            const countEl = segment.createDiv("sr-cram-bar__count");
+            countEl.setText(count.toString());
+        });
     }
 
     private _updateInfoBar(chosenDeck: Deck, currentDeck: Deck) {
