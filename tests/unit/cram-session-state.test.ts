@@ -15,7 +15,7 @@ function createCard(lineNumber: number, cardIdx: number): Card {
 }
 
 describe("CramSessionState", () => {
-    it("tracks demotions per card even for cards in the same note", () => {
+    it("returns synthetic responses per card, respecting demotion threshold", () => {
         const settings: SRSettings = {
             ...DEFAULT_SETTINGS,
             cramStages: 2,
@@ -37,7 +37,10 @@ describe("CramSessionState", () => {
         session.recordResponse(troublesomeCard, ReviewResponse.Hard, 0);
         session.recordResponse(troublesomeCard, ReviewResponse.Easy, 1);
 
-        expect(session.getSyntheticResponse(easyCard)).toEqual(ReviewResponse.Good);
-        expect(session.getSyntheticResponse(troublesomeCard)).toEqual(ReviewResponse.Hard);
+        const results = session.getCardsWithSyntheticResponses();
+        const responseByCard = new Map(results.map(({ card, response }) => [card, response]));
+
+        expect(responseByCard.get(easyCard)).toEqual(ReviewResponse.Good);
+        expect(responseByCard.get(troublesomeCard)).toEqual(ReviewResponse.Hard);
     });
 });

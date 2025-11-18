@@ -112,7 +112,6 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
     private questionPostponementList: IQuestionPostponementList;
     private dueDateFlashcardHistogram: DueDateHistogram;
     private cramSession: CramSessionState | null = null;
-    private cramCardsSeen: Set<Card> = new Set();
     private cramStageQueues: Card[][] = [];
     private cramCurrentCard: Card | null = null;
     private cramCurrentStageIndex: number = 0;
@@ -167,7 +166,6 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
         this._originalDeckTree = originalDeckTree;
         this.remainingDeckTree = remainingDeckTree;
         if (this.isCramMode) {
-            this.cramCardsSeen.clear();
             this.cramSession = new CramSessionState(this.settings);
             this.initialiseCramQueues(this.remainingDeckTree);
         } else {
@@ -322,7 +320,6 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
         const card = this.cramCurrentCard;
         if (!card) return;
         const session = this.ensureCramSession();
-        this.cramCardsSeen.add(card);
 
         const maxStage = Math.min(this.settings.cramStages - 1, this.settings.cramMemorizedStageIndex);
         let targetStage = this.cramCurrentStageIndex;
@@ -351,24 +348,14 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
 
     getCramStageStats(): CramStageStats | null {
         if (!this.isCramMode || !this.cramSession) return null;
-        const counts: number[] = Array.from({ length: this.settings.cramStages }, (_, idx) =>
-            this.cramStageQueues[idx]?.length ?? 0,
-        );
-        const currentStage = this.cramCurrentStageIndex;
-        if (this.cramCurrentCard) {
-            counts[currentStage] = (counts[currentStage] ?? 0) + 1;
-        }
-        return { counts, currentStage };
+        return this.cramSession.getStageStats(this.cramCurrentCard);
     }
 
     async finaliseCramSession(): Promise<void> {
         if (this.reviewMode !== FlashcardReviewMode.Cram || !this.cramSession) return;
         const dataStore = DataStore.getInstance();
-        for (const card of this.cramCardsSeen) {
-            const syntheticResponse = this.cramSession.getSyntheticResponse(card);
-            if (!syntheticResponse) {
-                continue;
-            }
+        const cardsForSynthetic = this.cramSession.getCardsWithSyntheticResponses();
+        for (const { card, response: syntheticResponse } of cardsForSynthetic) {
             const oldSchedule = card.scheduleInfo;
             const newSchedule = this.determineCardSchedule(syntheticResponse, card);
             card.scheduleInfo = newSchedule;
@@ -384,7 +371,6 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
             this.dueDateFlashcardHistogram.increment(newSchedule.interval);
         }
 
-        this.cramCardsSeen.clear();
         this.cramSession = null;
     }
 

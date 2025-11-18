@@ -8,6 +8,7 @@ export interface CramStageStats {
 }
 
 interface CramCardState {
+    card: Card;
     stage: number;
     demotions: number;
 }
@@ -36,8 +37,10 @@ export class CramSessionState {
         const key = this.keyFor(card);
         let state = this.perCard.get(key);
         if (!state) {
-            state = { stage: 0, demotions: 0 };
+            state = { card, stage: 0, demotions: 0 };
             this.perCard.set(key, state);
+        } else if (!state.card) {
+            state.card = card;
         }
         return state;
     }
@@ -49,28 +52,6 @@ export class CramSessionState {
         state.stage = newStage;
         if (newStage < previousStage) {
             state.demotions += 1;
-        }
-    }
-
-    getSyntheticResponse(card: Card): ReviewResponse | null {
-        const state = this.perCard.get(this.keyFor(card));
-        if (!state || state.stage < this.memorizedStage) {
-            return null;
-        }
-
-        const threshold = Math.max(0, this.settings.cramDemotionThreshold);
-        const useTroublesome = state.demotions >= threshold;
-        const choice = useTroublesome
-            ? this.settings.cramSyntheticTroublesomeResponse
-            : this.settings.cramSyntheticDefaultResponse;
-
-        switch (choice) {
-            case "easy":
-                return ReviewResponse.Easy;
-            case "hard":
-                return ReviewResponse.Hard;
-            default:
-                return ReviewResponse.Good;
         }
     }
 
@@ -90,11 +71,42 @@ export class CramSessionState {
         return state ? state.stage : 0;
     }
 
+    getCardsWithSyntheticResponses(): Array<{ card: Card; response: ReviewResponse }> {
+        const result: Array<{ card: Card; response: ReviewResponse }> = [];
+        for (const state of this.perCard.values()) {
+            if (!state.card || state.stage < this.memorizedStage) continue;
+            const threshold = Math.max(0, this.settings.cramDemotionThreshold);
+            const useTroublesome = state.demotions >= threshold;
+            const choice = useTroublesome
+                ? this.settings.cramSyntheticTroublesomeResponse
+                : this.settings.cramSyntheticDefaultResponse;
+            let response: ReviewResponse;
+            switch (choice) {
+                case "easy":
+                    response = ReviewResponse.Easy;
+                    break;
+                case "hard":
+                    response = ReviewResponse.Hard;
+                    break;
+                default:
+                    response = ReviewResponse.Good;
+                    break;
+            }
+            result.push({ card: state.card, response });
+        }
+        return result;
+    }
+
     seedCards(cards: Card[]): void {
         for (const card of cards) {
             const key = this.keyFor(card);
             if (!this.perCard.has(key)) {
-                this.perCard.set(key, { stage: 0, demotions: 0 });
+                this.perCard.set(key, { card, stage: 0, demotions: 0 });
+            } else {
+                const existing = this.perCard.get(key);
+                if (existing && !existing.card) {
+                    existing.card = card;
+                }
             }
         }
     }
