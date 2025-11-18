@@ -84,6 +84,7 @@ export class CardUI {
     private reviewMode: FlashcardReviewMode;
     private backToDeck: () => void;
     private editClickHandler: () => void;
+    private startCramHandler: (deck: Deck) => void;
 
     constructor(
         app: App,
@@ -94,6 +95,7 @@ export class CardUI {
         view: HTMLDivElement,
         backToDeck: () => void,
         editClickHandler: () => void,
+        startCramHandler: (deck: Deck) => void,
     ) {
         // Init properties
         this.app = app;
@@ -103,6 +105,7 @@ export class CardUI {
         this.reviewMode = reviewMode;
         this.backToDeck = backToDeck;
         this.editClickHandler = editClickHandler;
+        this.startCramHandler = startCramHandler;
         this.view = view;
         this.chosenDeck = null;
 
@@ -262,6 +265,7 @@ export class CardUI {
         this._createResetButton();
         this._createCardInfoButton();
         this._createSkipButton();
+        this._createCramButton();
     }
 
     private _createEditButton() {
@@ -301,6 +305,22 @@ export class CardUI {
         this.skipButton.setAttribute("aria-label", t("SKIP"));
         this.skipButton.addEventListener("click", () => {
             this._skipCurrentCard();
+        });
+    }
+
+    private _createCramButton() {
+        const cramButton = this.controls.createEl("button");
+        cramButton.addClasses(["sr-button", "sr-cram-button"]);
+        cramButton.setAttribute("aria-label", "Cram this deck");
+        cramButton.setText("Cram Deck");
+        if (this.reviewMode === FlashcardReviewMode.Cram) {
+            cramButton.addClass("sr-is-hidden");
+            return;
+        }
+        cramButton.addEventListener("click", () => {
+            if (this.startCramHandler && this.chosenDeck) {
+                this.startCramHandler(this.chosenDeck);
+            }
         });
     }
 

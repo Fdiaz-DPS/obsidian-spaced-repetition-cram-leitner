@@ -38,24 +38,12 @@ export class CramSessionState {
         return state;
     }
 
-    recordResponse(card: Card, response: ReviewResponse): void {
+    recordResponse(card: Card, response: ReviewResponse, targetStage: number): void {
         const state = this.getOrCreateState(card);
         const previousStage = state.stage;
-
-        switch (response) {
-            case ReviewResponse.Again:
-                state.stage = 0;
-                break;
-            case ReviewResponse.Hard:
-                state.stage = Math.max(0, previousStage - 1);
-                break;
-            case ReviewResponse.Good:
-            case ReviewResponse.Easy:
-                state.stage = Math.min(this.settings.cramStages - 1, previousStage + 1);
-                break;
-        }
-
-        if (previousStage > 0 && state.stage === 0) {
+        const newStage = Math.min(this.memorizedStage, Math.max(0, targetStage));
+        state.stage = newStage;
+        if (newStage < previousStage) {
             state.demotions += 1;
         }
     }
@@ -96,5 +84,14 @@ export class CramSessionState {
     getStage(card: Card): number {
         const state = this.perCard.get(this.keyFor(card));
         return state ? state.stage : 0;
+    }
+
+    seedCards(cards: Card[]): void {
+        for (const card of cards) {
+            const key = this.keyFor(card);
+            if (!this.perCard.has(key)) {
+                this.perCard.set(key, { stage: 0, demotions: 0 });
+            }
+        }
     }
 }

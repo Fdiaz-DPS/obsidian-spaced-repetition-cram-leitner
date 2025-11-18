@@ -9,6 +9,7 @@ import { DataStoreAlgorithm } from "src/data-store-algorithm/data-store-algorith
 import { DataStoreInNoteAlgorithmOsr } from "src/data-store-algorithm/data-store-in-note-algorithm-osr";
 import { DataStore } from "src/data-stores/base/data-store";
 import { StoreInNotes } from "src/data-stores/notes/notes";
+import { Card } from "src/card";
 import { CardListType, Deck, DeckTreeFilter } from "src/deck";
 import {
     CardOrder,
@@ -389,10 +390,30 @@ export default class SRPlugin extends Plugin {
             reviewMode,
         );
     }
+    public startCramForDeck(deck: Deck): void {
+        if (!deck) return;
+        const topicPath = deck.getTopicPath();
+        const predicate = (card: Card): boolean => {
+            if (!topicPath.hasPath) return true;
+            const list = card.question.topicPathList;
+            if (!list || list.length === 0) return false;
+            return list.list.some((tp) => topicPath.isSameOrAncestorOf(tp));
+        };
+        const filteredDeckTree = this.osrAppCore.reviewableDeckTree.copyWithCardFilter(predicate);
+        const remainingDeckTree = filteredDeckTree.clone();
+        this.openFlashcardModal(
+            filteredDeckTree,
+            remainingDeckTree,
+            FlashcardReviewMode.Cram,
+            topicPath,
+        );
+    }
+
     private openFlashcardModal(
         fullDeckTree: Deck,
         remainingDeckTree: Deck,
         reviewMode: FlashcardReviewMode,
+        initialDeckTopicPath: TopicPath = null,
     ): void {
         const reviewSequencerData = this.getPreparedReviewSequencer(
             fullDeckTree,
@@ -407,7 +428,16 @@ export default class SRPlugin extends Plugin {
             this.data.settings,
             reviewSequencerData.reviewSequencer,
             reviewSequencerData.mode,
+            initialDeckTopicPath,
         ).open();
+    }
+
+    public openStandardReviewModal(): void {
+        this.openFlashcardModal(
+            this.osrAppCore.reviewableDeckTree,
+            this.osrAppCore.remainingDeckTree,
+            FlashcardReviewMode.Review,
+        );
     }
 
     private static createDeckTreeIterator(settings: SRSettings): IDeckTreeIterator {

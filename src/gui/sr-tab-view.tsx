@@ -133,6 +133,7 @@ export class SRTabView extends ItemView {
                     this.viewContentEl.createDiv(),
                     this._showDecksList.bind(this),
                     this._doEditQuestionText.bind(this),
+                    this._startCramForDeck.bind(this),
                 );
             }
 
@@ -217,5 +218,12 @@ export class SRTabView extends ItemView {
             this.backButton.addClass("sr-is-hidden");
             this._showDecksList();
         });
+    }
+
+    private _startCramForDeck(deck: Deck): void {
+        if (!deck || this.reviewMode === FlashcardReviewMode.Cram) {
+            return;
+        }
+        this.plugin.startCramForDeck(deck);
     }
 }

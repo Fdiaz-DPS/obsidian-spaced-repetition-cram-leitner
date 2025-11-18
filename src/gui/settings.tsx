@@ -196,6 +196,95 @@ export class SRSettingTab extends PluginSettingTab {
                 }),
         );
 
+        containerEl.createEl("h3", { text: "Cram / Leitner" });
+        new Setting(containerEl)
+            .setName("Number of stages")
+            .setDesc("Total Leitner buckets used during cram sessions.")
+            .addText((text) =>
+                text
+                    .setValue(this.plugin.data.settings.cramStages.toString())
+                    .onChange(async (value) => {
+                        const parsed = Number(value);
+                        if (!Number.isNaN(parsed) && parsed >= 1) {
+                            this.plugin.data.settings.cramStages = Math.max(1, Math.round(parsed));
+                            this.plugin.data.settings.cramMemorizedStageIndex = Math.min(
+                                this.plugin.data.settings.cramStages - 1,
+                                this.plugin.data.settings.cramMemorizedStageIndex,
+                            );
+                            await this.plugin.savePluginData();
+                        }
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName("Memorized stage index")
+            .setDesc("Zero-based index that represents the 'memorized' bucket.")
+            .addText((text) =>
+                text
+                    .setValue(this.plugin.data.settings.cramMemorizedStageIndex.toString())
+                    .onChange(async (value) => {
+                        const parsed = Number(value);
+                        if (!Number.isNaN(parsed)) {
+                            const maxIndex = this.plugin.data.settings.cramStages - 1;
+                            this.plugin.data.settings.cramMemorizedStageIndex = Math.max(
+                                0,
+                                Math.min(maxIndex, Math.round(parsed)),
+                            );
+                            await this.plugin.savePluginData();
+                        }
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName("Demotion threshold")
+            .setDesc("Cards demoted this many times become 'troublesome' at the end of a cram session.")
+            .addText((text) =>
+                text
+                    .setValue(this.plugin.data.settings.cramDemotionThreshold.toString())
+                    .onChange(async (value) => {
+                        const parsed = Number(value);
+                        if (!Number.isNaN(parsed)) {
+                            this.plugin.data.settings.cramDemotionThreshold = Math.max(
+                                0,
+                                Math.round(parsed),
+                            );
+                            await this.plugin.savePluginData();
+                        }
+                    }),
+            );
+
+        const responseOptions: Record<string, string> = {
+            easy: t("EASY"),
+            good: t("GOOD"),
+            hard: t("HARD"),
+        };
+
+        new Setting(containerEl)
+            .setName("Default synthetic response")
+            .setDesc("Response applied to cards that reach the memorized stage without being troublesome.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOptions(responseOptions)
+                    .setValue(this.plugin.data.settings.cramSyntheticDefaultResponse)
+                    .onChange(async (value: "easy" | "good" | "hard") => {
+                        this.plugin.data.settings.cramSyntheticDefaultResponse = value;
+                        await this.plugin.savePluginData();
+                    }),
+            );
+
+        new Setting(containerEl)
+            .setName("Troublesome synthetic response")
+            .setDesc("Response applied to cards that hit the demotion threshold during a cram session.")
+            .addDropdown((dropdown) =>
+                dropdown
+                    .addOptions(responseOptions)
+                    .setValue(this.plugin.data.settings.cramSyntheticTroublesomeResponse)
+                    .onChange(async (value: "easy" | "good" | "hard") => {
+                        this.plugin.data.settings.cramSyntheticTroublesomeResponse = value;
+                        await this.plugin.savePluginData();
+                    }),
+            );
+
         containerEl.createEl("h3", { text: t("GROUP_FLASHCARD_SEPARATORS") });
         const convertHighlightsToClozesEl = new Setting(containerEl).setName(
             t("CONVERT_HIGHLIGHTS_TO_CLOZES"),

@@ -12,6 +12,7 @@ import { t } from "src/lang/helpers";
 import type SRPlugin from "src/main";
 import { Question } from "src/question";
 import { SRSettings } from "src/settings";
+import { TopicPath } from "src/topic-path";
 
 export enum FlashcardMode {
     Deck,
@@ -29,6 +30,7 @@ export class FlashcardModal extends Modal {
     private deckView: DeckUI;
     private flashcardView: CardUI;
     public backButton: HTMLDivElement;
+    private initialDeckTopicPath: TopicPath | null;
 
     constructor(
         app: App,
@@ -36,6 +38,7 @@ export class FlashcardModal extends Modal {
         settings: SRSettings,
         reviewSequencer: IFlashcardReviewSequencer,
         reviewMode: FlashcardReviewMode,
+        initialDeckTopicPath: TopicPath = null,
     ) {
         super(app);
 
@@ -44,6 +47,7 @@ export class FlashcardModal extends Modal {
         this.settings = settings;
         this.reviewSequencer = reviewSequencer;
         this.reviewMode = reviewMode;
+        this.initialDeckTopicPath = initialDeckTopicPath;
 
         // Setup base containers
         this.modalEl.style.height = this.settings.flashcardHeightPercentage + "%";
@@ -79,11 +83,19 @@ export class FlashcardModal extends Modal {
             this.contentEl.createDiv(),
             this._showDecksList.bind(this),
             this._doEditQuestionText.bind(this),
+            this._startCramSessionForDeck.bind(this),
         );
     }
 
     onOpen(): void {
         this._createBackButton();
+        if (this.initialDeckTopicPath) {
+            const deck = this.reviewSequencer.originalDeckTree.getDeck(this.initialDeckTopicPath);
+            if (deck) {
+                this._startReviewOfDeck(deck);
+                return;
+            }
+        }
         this._showDecksList();
     }
 
@@ -123,6 +135,14 @@ export class FlashcardModal extends Modal {
         }
     }
 
+    private _startCramSessionForDeck(deck: Deck): void {
+        if (!deck || this.reviewMode === FlashcardReviewMode.Cram) {
+            return;
+        }
+        this.close();
+        this.plugin.startCramForDeck(deck);
+    }
+
     private async _doEditQuestionText(): Promise<void> {
         const currentQ: Question = this.reviewSequencer.currentQuestion;
 
@@ -147,8 +167,13 @@ export class FlashcardModal extends Modal {
         setIcon(this.backButton, "arrow-left");
         this.backButton.setAttribute("aria-label", t("BACK"));
         this.backButton.addEventListener("click", () => {
-            this.backButton.addClass("sr-is-hidden");
-            this._showDecksList();
+            if (this.reviewMode === FlashcardReviewMode.Cram) {
+                this.close();
+                this.plugin.openStandardReviewModal();
+            } else {
+                this.backButton.addClass("sr-is-hidden");
+                this._showDecksList();
+            }
         });
     }
 }

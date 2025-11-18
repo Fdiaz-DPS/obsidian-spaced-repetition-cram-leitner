@@ -113,6 +113,9 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
     private dueDateFlashcardHistogram: DueDateHistogram;
     private cramSession: CramSessionState | null = null;
     private cramCardsSeen: Set<Card> = new Set();
+    private cramStageQueues: Card[][] = [];
+    private cramCurrentCard: Card | null = null;
+    private cramCurrentStageIndex: number = 0;
 
     constructor(
         reviewMode: FlashcardReviewMode,
@@ -128,16 +131,19 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
         this.srsAlgorithm = srsAlgorithm;
         this.questionPostponementList = questionPostponementList;
         this.dueDateFlashcardHistogram = dueDateFlashcardHistogram;
-        if (this.reviewMode === FlashcardReviewMode.Cram) {
-            this.cramSession = new CramSessionState(this.settings);
-        }
+    }
+
+    private get isCramMode(): boolean {
+        return this.reviewMode === FlashcardReviewMode.Cram;
     }
 
     get hasCurrentCard(): boolean {
+        if (this.isCramMode) return this.cramCurrentCard != null;
         return this.cardSequencer.currentCard != null;
     }
 
     get currentCard(): Card {
+        if (this.isCramMode) return this.cramCurrentCard;
         return this.cardSequencer.currentCard;
     }
 
@@ -146,6 +152,7 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
     }
 
     get currentDeck(): Deck {
+        if (this.isCramMode) return this.remainingDeckTree;
         return this.cardSequencer.currentDeck;
     }
 
@@ -159,14 +166,20 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
         this.cardSequencer.setBaseDeck(remainingDeckTree);
         this._originalDeckTree = originalDeckTree;
         this.remainingDeckTree = remainingDeckTree;
-        this.setCurrentDeck(TopicPath.emptyPath);
-        if (this.reviewMode === FlashcardReviewMode.Cram) {
+        if (this.isCramMode) {
             this.cramCardsSeen.clear();
             this.cramSession = new CramSessionState(this.settings);
+            this.initialiseCramQueues(this.remainingDeckTree);
+        } else {
+            this.setCurrentDeck(TopicPath.emptyPath);
         }
     }
 
     setCurrentDeck(topicPath: TopicPath): void {
+        if (this.isCramMode) {
+            this.advanceCramCard();
+            return;
+        }
         this.cardSequencer.setIteratorTopicPath(topicPath);
         this.cardSequencer.nextCard();
     }
@@ -232,6 +245,13 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
     }
 
     skipCurrentCard(): void {
+        if (this.isCramMode) {
+            if (this.cramCurrentCard) {
+                this.cramStageQueues[this.cramCurrentStageIndex].push(this.cramCurrentCard);
+                this.advanceCramCard();
+            }
+            return;
+        }
         this.cardSequencer.deleteCurrentQuestionFromAllDecks();
     }
 
@@ -240,7 +260,7 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
     }
 
     async processReview(response: ReviewResponse): Promise<void> {
-        if (this.reviewMode === FlashcardReviewMode.Cram) {
+        if (this.isCramMode) {
             await this.processReviewCramMode(response);
             return;
         }
@@ -297,30 +317,46 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
     }
 
     async processReviewCramMode(response: ReviewResponse): Promise<void> {
-        const card = this.currentCard;
+        const card = this.cramCurrentCard;
         if (!card) return;
         const session = this.ensureCramSession();
         this.cramCardsSeen.add(card);
-        session.recordResponse(card, response);
 
-        if (response == ReviewResponse.Easy) {
-            this.deleteCurrentCard();
-        } else {
-            this.cardSequencer.moveCurrentCardToEndOfList();
-            this.cardSequencer.nextCard();
+        const maxStage = Math.min(this.settings.cramStages - 1, this.settings.cramMemorizedStageIndex);
+        let targetStage = this.cramCurrentStageIndex;
+        if (response == ReviewResponse.Easy || response == ReviewResponse.Good) {
+            targetStage = Math.min(maxStage, this.cramCurrentStageIndex + 1);
+        } else if (response == ReviewResponse.Hard || response == ReviewResponse.Again) {
+            targetStage = Math.max(0, this.cramCurrentStageIndex - 1);
         }
+
+        session.recordResponse(card, response, targetStage);
+        const isMemorizedStage = targetStage >= maxStage;
+        if (!isMemorizedStage || response == ReviewResponse.Hard || response == ReviewResponse.Again) {
+            this.cramStageQueues[targetStage].push(card);
+        }
+
+        this.advanceCramCard();
     }
 
     private ensureCramSession(): CramSessionState {
         if (!this.cramSession) {
             this.cramSession = new CramSessionState(this.settings);
+            this.initialiseCramQueues(this.remainingDeckTree);
         }
         return this.cramSession;
     }
 
     getCramStageStats(): CramStageStats | null {
-        if (this.reviewMode !== FlashcardReviewMode.Cram || !this.cramSession) return null;
-        return this.cramSession.getStageStats(this.currentCard ?? null);
+        if (!this.isCramMode || !this.cramSession) return null;
+        const counts: number[] = Array.from({ length: this.settings.cramStages }, (_, idx) =>
+            this.cramStageQueues[idx]?.length ?? 0,
+        );
+        const currentStage = this.cramCurrentStageIndex;
+        if (this.cramCurrentCard) {
+            counts[currentStage] = (counts[currentStage] ?? 0) + 1;
+        }
+        return { counts, currentStage };
     }
 
     async finaliseCramSession(): Promise<void> {
@@ -348,6 +384,44 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
 
         this.cramCardsSeen.clear();
         this.cramSession = null;
+    }
+
+    private initialiseCramQueues(deck: Deck): void {
+        if (!this.cramSession || !deck) return;
+        const uniqueCards = this.getUniqueCards(deck);
+        this.cramSession.seedCards(uniqueCards);
+        this.cramStageQueues = Array.from({ length: this.settings.cramStages }, () => []);
+        if (uniqueCards.length > 0) {
+            this.cramStageQueues[0].push(...uniqueCards);
+        }
+        this.cramCurrentStageIndex = 0;
+        this.advanceCramCard(false);
+    }
+
+    private getUniqueCards(deck: Deck): Card[] {
+        const cards = deck.getFlattenedCardArray(CardListType.All, true);
+        const unique = Array.from(new Set(cards));
+        return unique;
+    }
+
+    private advanceCramCard(preferCurrentStage: boolean = true): void {
+        if (
+            preferCurrentStage &&
+            this.cramStageQueues[this.cramCurrentStageIndex] &&
+            this.cramStageQueues[this.cramCurrentStageIndex].length > 0
+        ) {
+            this.cramCurrentCard = this.cramStageQueues[this.cramCurrentStageIndex].shift();
+            return;
+        }
+
+        for (let i = 0; i < this.cramStageQueues.length; i++) {
+            if (this.cramStageQueues[i].length > 0) {
+                this.cramCurrentStageIndex = i;
+                this.cramCurrentCard = this.cramStageQueues[i].shift();
+                return;
+            }
+        }
+        this.cramCurrentCard = null;
     }
 
     determineCardSchedule(response: ReviewResponse, card: Card): RepItemScheduleInfo {
