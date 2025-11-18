@@ -177,7 +177,9 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
 
     setCurrentDeck(topicPath: TopicPath): void {
         if (this.isCramMode) {
-            this.advanceCramCard();
+            if (!this.cramCurrentCard) {
+                this.advanceCramCard();
+            }
             return;
         }
         this.cardSequencer.setIteratorTopicPath(topicPath);
@@ -326,13 +328,13 @@ export class FlashcardReviewSequencer implements IFlashcardReviewSequencer {
         let targetStage = this.cramCurrentStageIndex;
         if (response == ReviewResponse.Easy || response == ReviewResponse.Good) {
             targetStage = Math.min(maxStage, this.cramCurrentStageIndex + 1);
-        } else if (response == ReviewResponse.Hard || response == ReviewResponse.Again) {
+        } else if (response == ReviewResponse.Hard || response == ReviewResponse.Reset) {
             targetStage = Math.max(0, this.cramCurrentStageIndex - 1);
         }
 
         session.recordResponse(card, response, targetStage);
         const isMemorizedStage = targetStage >= maxStage;
-        if (!isMemorizedStage || response == ReviewResponse.Hard || response == ReviewResponse.Again) {
+        if (!isMemorizedStage || response == ReviewResponse.Hard || response == ReviewResponse.Reset) {
             this.cramStageQueues[targetStage].push(card);
         }
 

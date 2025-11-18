@@ -25,7 +25,11 @@ export class CramSessionState {
 
     private keyFor(card: Card): string {
         const notePath = card.question?.note?.filePath ?? card.question?.note?.file?.path ?? "";
-        return `${notePath}::${card.cardIdx}`;
+        const questionLine =
+            card.question?.parsedQuestionInfo?.firstLineNum ??
+            card.question?.questionText?.textHash ??
+            "";
+        return `${notePath}::${questionLine}::${card.cardIdx}`;
     }
 
     private getOrCreateState(card: Card): CramCardState {
