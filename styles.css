@@ -364,6 +364,30 @@ body:not(.native-scrollbars) #sr-modal .modal-close-button {
     margin-bottom: 0;
 }
 
+.sr-deck-list .sr-tree-actions {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sr-deck-list .sr-tree-cram-button {
+    border: none;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    background: var(--interactive-accent);
+    color: var(--text-on-accent, #fff);
+}
+
+.sr-deck-list .sr-tree-cram-button:hover {
+    opacity: 0.85;
+}
+
 .sr-deck-list .sr-tree-stats-container {
     display: flex;
     gap: 4px;

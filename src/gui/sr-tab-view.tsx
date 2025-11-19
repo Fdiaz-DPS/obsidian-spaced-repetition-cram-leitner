@@ -120,6 +120,9 @@ export class SRTabView extends ItemView {
                     this.reviewSequencer,
                     this.viewContentEl.createDiv(),
                     this._startReviewOfDeck.bind(this),
+                    this.reviewMode === FlashcardReviewMode.Review
+                        ? this._startCramForDeck.bind(this)
+                        : null,
                 );
             }
 

@@ -72,6 +72,9 @@ export class FlashcardModal extends Modal {
             this.reviewSequencer,
             this.contentEl.createDiv(),
             this._startReviewOfDeck.bind(this),
+            this.reviewMode === FlashcardReviewMode.Review
+                ? this._startCramSessionForDeck.bind(this)
+                : null,
         );
 
         this.flashcardView = new CardUI(

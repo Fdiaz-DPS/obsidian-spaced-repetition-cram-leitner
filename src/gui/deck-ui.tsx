@@ -1,3 +1,4 @@
+import { setIcon } from "obsidian";
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import h from "vhtml";
 
@@ -28,6 +29,7 @@ export class DeckUI {
     private reviewSequencer: IFlashcardReviewSequencer;
     private settings: SRSettings;
     private startReviewOfDeck: (deck: Deck) => void;
+    private startCramForDeck?: (deck: Deck) => void;
 
     constructor(
         plugin: SRPlugin,
@@ -35,6 +37,7 @@ export class DeckUI {
         reviewSequencer: IFlashcardReviewSequencer,
         view: HTMLDivElement,
         startReviewOfDeck: (deck: Deck) => void,
+        startCramForDeck?: (deck: Deck) => void,
     ) {
         // Init properties
         this.plugin = plugin;
@@ -42,6 +45,7 @@ export class DeckUI {
         this.reviewSequencer = reviewSequencer;
         this.view = view;
         this.startReviewOfDeck = startReviewOfDeck;
+        this.startCramForDeck = startCramForDeck;
 
         // Build ui
         this.init();
@@ -160,7 +164,21 @@ export class DeckUI {
         const deckTreeInnerText: HTMLElement = deckTreeInner.createDiv("tag-pane-tag-text");
         deckTreeInnerText.innerHTML += <span class="tag-pane-tag-self">{deck.deckName}</span>;
 
-        const deckTreeOuter: HTMLDivElement = deckTreeSelf.createDiv();
+        const actionsContainer = deckTreeSelf.createDiv();
+        actionsContainer.addClass("sr-tree-actions");
+        if (this.startCramForDeck) {
+            const cramButton = actionsContainer.createEl("button");
+            cramButton.addClass("sr-tree-cram-button");
+            cramButton.ariaLabel = t("CRAM_ALL_CARDS");
+            cramButton.setAttribute("title", t("CRAM_ALL_CARDS"));
+            setIcon(cramButton, "zap");
+            cramButton.addEventListener("click", (event) => {
+                event.stopPropagation();
+                this.startCramForDeck(deck);
+            });
+        }
+
+        const deckTreeOuter: HTMLDivElement = actionsContainer.createDiv();
         deckTreeOuter.addClasses(["tree-item-flair-outer", "sr-tree-stats-container"]);
 
         const deckStats = this.reviewSequencer.getDeckStats(deck.getTopicPath());
